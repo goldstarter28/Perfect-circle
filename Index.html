@@ -1,0 +1,2086 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="
+            width=device-width,
+            initial-scale=1,
+            maximum-scale=1,
+            user-scalable=no,
+            viewport-fit=cover
+        "
+    >
+
+    <meta name="theme-color" content="#141418">
+
+    <title>Quanto è circolare?</title>
+
+    <style>
+
+.made-by {
+    position: fixed;
+    right: 12px;
+    bottom: 8px;
+    color: var(--secondary);
+    font-size: 11px;
+    opacity: 0.55;
+    user-select: none;
+    pointer-events: none;
+}
+
+        :root {
+            color-scheme: dark;
+
+            --background: #141418;
+            --panel: #202027;
+            --border: #34343d;
+
+            --text: #ebebeb;
+            --secondary: #a5a5af;
+
+            --drawing: #f5f5f5;
+            --fit-circle: #46a0ff;
+
+            --good: #46dc78;
+            --medium: #ffbe3c;
+            --bad: #f05050;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html,
+        body {
+            margin: 0;
+            min-height: 100%;
+            background: var(--background);
+            color: var(--text);
+            font-family:
+                system-ui,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+            overscroll-behavior: none;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+
+            padding:
+                max(18px, env(safe-area-inset-top))
+                max(14px, env(safe-area-inset-right))
+                max(20px, env(safe-area-inset-bottom))
+                max(14px, env(safe-area-inset-left));
+        }
+
+        .app {
+            width: min(100%, 840px);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(30px, 7vw, 50px);
+            line-height: 1.05;
+        }
+
+        .subtitle {
+            margin: 10px 0 18px;
+            color: var(--secondary);
+            font-size: clamp(15px, 3.5vw, 18px);
+        }
+
+        .game-panel {
+            padding: 14px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background: var(--panel);
+            box-shadow: 0 18px 50px rgb(0 0 0 / 25%);
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: min(68vh, 620px);
+            min-height: 360px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            background: var(--background);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        .score-overlay {
+            position: absolute;
+            top: 18px;
+            left: 22px;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .score {
+            font-size: clamp(64px, 16vw, 110px);
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .message {
+            margin-top: 10px;
+            max-width: min(75vw, 500px);
+            font-size: clamp(16px, 4vw, 23px);
+            font-weight: 650;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns:
+                repeat(auto-fit, minmax(190px, 1fr));
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .metric {
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--background);
+        }
+
+        .metric-label {
+            display: block;
+            color: var(--secondary);
+            font-size: 13px;
+        }
+
+        .metric-value {
+            display: block;
+            margin-top: 3px;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        button {
+            min-height: 48px;
+            padding: 0 20px;
+            border: 0;
+            border-radius: 12px;
+            background: #ededed;
+            color: #17171b;
+            font: inherit;
+            font-weight: 750;
+            cursor: pointer;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .technical-note {
+            margin: 14px 2px 0;
+            color: var(--secondary);
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        @media (max-width: 520px) {
+            body {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+
+            .game-panel {
+                padding: 9px;
+                border-radius: 16px;
+            }
+
+            .canvas-wrapper {
+                height: 62vh;
+                min-height: 390px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+<main class="app">
+
+<div class="made-by">made by pado</div>
+
+    <h1>Quanto è circolare?</h1>
+
+    <p class="subtitle">
+        Disegna un cerchio con il dito, il mouse o Apple Pencil.
+    </p>
+
+    <section class="game-panel">
+        <div class="canvas-wrapper" id="canvasWrapper">
+            <canvas id="canvas"></canvas>
+
+            <div class="score-overlay">
+                <div class="score" id="score">0</div>
+
+                <div class="message" id="message">
+                    Disegna il tuo primo cerchio
+                </div>
+            </div>
+        </div>
+
+        <div class="metrics">
+            <div class="metric">
+                <span class="metric-label">
+                    Irregolarità del raggio
+                </span>
+
+                <span class="metric-value" id="radialError">
+                    —
+                </span>
+            </div>
+
+            <div class="metric">
+                <span class="metric-label">
+                    Apertura del cerchio
+                </span>
+
+                <span class="metric-value" id="closureError">
+                    —
+                </span>
+            </div>
+
+            <div class="metric">
+                <span class="metric-label">
+                    Irregolarità della curvatura
+                </span>
+
+                <span class="metric-value" id="curvatureError">
+                    —
+                </span>
+            </div>
+
+            <div class="metric">
+                <span class="metric-label">
+                    Giro completato
+                </span>
+
+                <span class="metric-value" id="turnCoverage">
+                    —
+                </span>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button type="button" id="resetButton">
+                Nuovo tentativo
+            </button>
+        </div>
+
+        <p class="technical-note">
+            Il punteggio dipende dalla regolarità del raggio,
+            dalla regolarità della curvatura e dalla percentuale
+            del giro effettivamente completata.
+        </p>
+    </section>
+</main>
+
+<script>
+"use strict";
+
+
+/* ============================================================
+   CONFIGURAZIONE
+   ============================================================ */
+
+const CONFIG = {
+    minRawPoints: 18,
+
+    minPathLengthRatio: 0.20,
+    minRadiusRatio: 0.045,
+
+    resampleDistanceRatio: 0.006,
+
+    smoothingIterations: 3,
+
+    tangentWindow: 5,
+    curvatureStep: 4,
+
+    /*
+     * Valori più bassi rendono il punteggio più severo.
+     *
+     * La componente radiale è stata resa sensibilmente
+     * più severa per penalizzare ellissi e cerchi schiacciati.
+     */
+    radialErrorScale: 0.075,
+
+    /*
+     * Anche la curvatura è leggermente più severa rispetto
+     * alla versione precedente.
+     */
+    curvatureErrorScale: 0.58,
+
+    /*
+     * Il raggio pesa maggiormente per distinguere meglio
+     * un cerchio da ellissi e forme schiacciate.
+     */
+    radialWeight: 0.48,
+    curvatureWeight: 0.52,
+
+    lineWidth: 4
+};
+
+
+const COLORS = {
+    background: "#141418",
+    drawing: "#f5f5f5",
+    fitCircle: "#46a0ff",
+    text: "#ebebeb",
+    secondary: "#a5a5af",
+    good: "#46dc78",
+    medium: "#ffbe3c",
+    bad: "#f05050"
+};
+
+
+/* ============================================================
+   ELEMENTI DOM
+   ============================================================ */
+
+const canvas =
+    document.getElementById("canvas");
+
+const wrapper =
+    document.getElementById("canvasWrapper");
+
+const context =
+    canvas.getContext("2d");
+
+const scoreElement =
+    document.getElementById("score");
+
+const messageElement =
+    document.getElementById("message");
+
+const radialErrorElement =
+    document.getElementById("radialError");
+
+const closureErrorElement =
+    document.getElementById("closureError");
+
+const curvatureErrorElement =
+    document.getElementById("curvatureError");
+
+const turnCoverageElement =
+    document.getElementById("turnCoverage");
+
+const resetButton =
+    document.getElementById("resetButton");
+
+
+/* ============================================================
+   STATO
+   ============================================================ */
+
+let points = [];
+let drawing = false;
+let activePointerId = null;
+let analysis = null;
+
+let logicalWidth = 0;
+let logicalHeight = 0;
+
+
+/* ============================================================
+   UTILITÀ MATEMATICHE
+   ============================================================ */
+
+function clamp(value, minimum, maximum) {
+    return Math.max(
+        minimum,
+        Math.min(maximum, value)
+    );
+}
+
+
+function distance(pointA, pointB) {
+    return Math.hypot(
+        pointB.x - pointA.x,
+        pointB.y - pointA.y
+    );
+}
+
+
+function mean(values) {
+    if (values.length === 0) {
+        return 0;
+    }
+
+    return values.reduce(
+        (sum, value) => sum + value,
+        0
+    ) / values.length;
+}
+
+
+function median(values) {
+    if (values.length === 0) {
+        return 0;
+    }
+
+    const sorted = [...values].sort(
+        (a, b) => a - b
+    );
+
+    const middle =
+        Math.floor(sorted.length / 2);
+
+    if (sorted.length % 2 === 0) {
+        return (
+            sorted[middle - 1]
+            + sorted[middle]
+        ) / 2;
+    }
+
+    return sorted[middle];
+}
+
+
+function standardDeviation(values) {
+    if (values.length === 0) {
+        return 0;
+    }
+
+    const average = mean(values);
+
+    const variance = values.reduce(
+        (sum, value) => {
+            const difference =
+                value - average;
+
+            return (
+                sum
+                + difference * difference
+            );
+        },
+        0
+    ) / values.length;
+
+    return Math.sqrt(variance);
+}
+
+
+function pathLength(path) {
+    let total = 0;
+
+    for (
+        let index = 1;
+        index < path.length;
+        index++
+    ) {
+        total += distance(
+            path[index - 1],
+            path[index]
+        );
+    }
+
+    return total;
+}
+
+
+function percentile(values, fraction) {
+    if (values.length === 0) {
+        return 0;
+    }
+
+    const sorted = [...values].sort(
+        (a, b) => a - b
+    );
+
+    const position =
+        clamp(
+            fraction,
+            0,
+            1
+        ) * (sorted.length - 1);
+
+    const lower =
+        Math.floor(position);
+
+    const upper =
+        Math.ceil(position);
+
+    if (lower === upper) {
+        return sorted[lower];
+    }
+
+    const interpolation =
+        position - lower;
+
+    return (
+        sorted[lower]
+        + (
+            sorted[upper]
+            - sorted[lower]
+        ) * interpolation
+    );
+}
+
+
+/* ============================================================
+   PREPARAZIONE DEI PUNTI
+   ============================================================ */
+
+function removeDuplicatePoints(
+    path,
+    minimumDistance = 0.5
+) {
+    if (path.length < 2) {
+        return path.map(
+            point => ({ ...point })
+        );
+    }
+
+    const result = [
+        { ...path[0] }
+    ];
+
+    for (
+        let index = 1;
+        index < path.length;
+        index++
+    ) {
+        const current =
+            path[index];
+
+        const previous =
+            result[result.length - 1];
+
+        if (
+            distance(previous, current)
+            >= minimumDistance
+        ) {
+            result.push({
+                ...current
+            });
+        }
+    }
+
+    return result;
+}
+
+
+function resamplePath(path, spacing) {
+    const cleaned =
+        removeDuplicatePoints(path);
+
+    if (cleaned.length < 2) {
+        return cleaned;
+    }
+
+    const segmentLengths = [];
+    const cumulativeLengths = [0];
+
+    for (
+        let index = 1;
+        index < cleaned.length;
+        index++
+    ) {
+        const segmentLength =
+            distance(
+                cleaned[index - 1],
+                cleaned[index]
+            );
+
+        segmentLengths.push(
+            segmentLength
+        );
+
+        cumulativeLengths.push(
+            cumulativeLengths[
+                cumulativeLengths.length - 1
+            ] + segmentLength
+        );
+    }
+
+    const totalLength =
+        cumulativeLengths[
+            cumulativeLengths.length - 1
+        ];
+
+    if (totalLength <= 1e-9) {
+        return [
+            { ...cleaned[0] }
+        ];
+    }
+
+    const sampleCount = Math.max(
+        2,
+        Math.ceil(
+            totalLength / spacing
+        ) + 1
+    );
+
+    const result = [];
+    let segmentIndex = 0;
+
+    for (
+        let sampleIndex = 0;
+        sampleIndex < sampleCount;
+        sampleIndex++
+    ) {
+        const targetDistance =
+            totalLength
+            * sampleIndex
+            / (sampleCount - 1);
+
+        while (
+            segmentIndex
+                < segmentLengths.length - 1
+            &&
+            cumulativeLengths[
+                segmentIndex + 1
+            ] < targetDistance
+        ) {
+            segmentIndex++;
+        }
+
+        const startDistance =
+            cumulativeLengths[segmentIndex];
+
+        const segmentLength =
+            segmentLengths[segmentIndex];
+
+        const interpolation =
+            segmentLength <= 1e-9
+                ? 0
+                : (
+                    targetDistance
+                    - startDistance
+                ) / segmentLength;
+
+        const start =
+            cleaned[segmentIndex];
+
+        const end =
+            cleaned[segmentIndex + 1];
+
+        result.push({
+            x:
+                start.x
+                + (
+                    end.x - start.x
+                ) * interpolation,
+
+            y:
+                start.y
+                + (
+                    end.y - start.y
+                ) * interpolation
+        });
+    }
+
+    return result;
+}
+
+
+function smoothOpenPath(path, iterations) {
+    if (path.length < 3) {
+        return path.map(
+            point => ({ ...point })
+        );
+    }
+
+    let result = path.map(
+        point => ({ ...point })
+    );
+
+    for (
+        let iteration = 0;
+        iteration < iterations;
+        iteration++
+    ) {
+        const previous =
+            result.map(
+                point => ({ ...point })
+            );
+
+        for (
+            let index = 1;
+            index < previous.length - 1;
+            index++
+        ) {
+            result[index] = {
+                x: (
+                    previous[index - 1].x
+                    + 2 * previous[index].x
+                    + previous[index + 1].x
+                ) / 4,
+
+                y: (
+                    previous[index - 1].y
+                    + 2 * previous[index].y
+                    + previous[index + 1].y
+                ) / 4
+            };
+        }
+    }
+
+    return result;
+}
+
+
+/* ============================================================
+   SISTEMA LINEARE 3 × 3
+   ============================================================ */
+
+function solveLinearSystem3(matrix, vector) {
+    const augmented = [
+        [
+            matrix[0][0],
+            matrix[0][1],
+            matrix[0][2],
+            vector[0]
+        ],
+        [
+            matrix[1][0],
+            matrix[1][1],
+            matrix[1][2],
+            vector[1]
+        ],
+        [
+            matrix[2][0],
+            matrix[2][1],
+            matrix[2][2],
+            vector[2]
+        ]
+    ];
+
+    for (
+        let column = 0;
+        column < 3;
+        column++
+    ) {
+        let pivotRow = column;
+
+        for (
+            let row = column + 1;
+            row < 3;
+            row++
+        ) {
+            if (
+                Math.abs(
+                    augmented[row][column]
+                )
+                >
+                Math.abs(
+                    augmented[pivotRow][column]
+                )
+            ) {
+                pivotRow = row;
+            }
+        }
+
+        if (
+            Math.abs(
+                augmented[pivotRow][column]
+            ) < 1e-12
+        ) {
+            return null;
+        }
+
+        if (pivotRow !== column) {
+            const temporary =
+                augmented[column];
+
+            augmented[column] =
+                augmented[pivotRow];
+
+            augmented[pivotRow] =
+                temporary;
+        }
+
+        const pivot =
+            augmented[column][column];
+
+        for (
+            let currentColumn = column;
+            currentColumn < 4;
+            currentColumn++
+        ) {
+            augmented[column][currentColumn]
+                /= pivot;
+        }
+
+        for (
+            let row = 0;
+            row < 3;
+            row++
+        ) {
+            if (row === column) {
+                continue;
+            }
+
+            const factor =
+                augmented[row][column];
+
+            for (
+                let currentColumn = column;
+                currentColumn < 4;
+                currentColumn++
+            ) {
+                augmented[row][currentColumn] -=
+                    factor
+                    * augmented[column][currentColumn];
+            }
+        }
+    }
+
+    return [
+        augmented[0][3],
+        augmented[1][3],
+        augmented[2][3]
+    ];
+}
+
+
+/* ============================================================
+   FIT DEL CERCHIO
+   ============================================================ */
+
+function fitCircleLeastSquares(path) {
+    if (path.length < 3) {
+        return null;
+    }
+
+    const averageX =
+        mean(path.map(point => point.x));
+
+    const averageY =
+        mean(path.map(point => point.y));
+
+    const normalMatrix = [
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0]
+    ];
+
+    const normalVector = [
+        0,
+        0,
+        0
+    ];
+
+    for (const point of path) {
+        const x =
+            point.x - averageX;
+
+        const y =
+            point.y - averageY;
+
+        const row = [
+            2 * x,
+            2 * y,
+            1
+        ];
+
+        const target =
+            x * x + y * y;
+
+        for (let i = 0; i < 3; i++) {
+            normalVector[i] +=
+                row[i] * target;
+
+            for (let j = 0; j < 3; j++) {
+                normalMatrix[i][j] +=
+                    row[i] * row[j];
+            }
+        }
+    }
+
+    const solution =
+        solveLinearSystem3(
+            normalMatrix,
+            normalVector
+        );
+
+    if (solution === null) {
+        return null;
+    }
+
+    const [
+        localCenterX,
+        localCenterY,
+        constant
+    ] = solution;
+
+    const radiusSquared =
+        constant
+        + localCenterX * localCenterX
+        + localCenterY * localCenterY;
+
+    if (
+        !Number.isFinite(radiusSquared)
+        || radiusSquared <= 0
+    ) {
+        return null;
+    }
+
+    const centerX =
+        localCenterX + averageX;
+
+    const centerY =
+        localCenterY + averageY;
+
+    const radius =
+        Math.sqrt(radiusSquared);
+
+    if (
+        !Number.isFinite(centerX)
+        || !Number.isFinite(centerY)
+        || !Number.isFinite(radius)
+    ) {
+        return null;
+    }
+
+    return {
+        centerX,
+        centerY,
+        radius
+    };
+}
+
+
+/* ============================================================
+   ANGOLI
+   ============================================================ */
+
+function normalizeAngleDifference(difference) {
+    while (difference > Math.PI) {
+        difference -= 2 * Math.PI;
+    }
+
+    while (difference < -Math.PI) {
+        difference += 2 * Math.PI;
+    }
+
+    return difference;
+}
+
+
+/* ============================================================
+   COPERTURA DEL GIRO
+   ============================================================ */
+
+function calculateTurnCoverage(
+    path,
+    centerX,
+    centerY
+) {
+    if (path.length < 2) {
+        return {
+            signedTurn: 0,
+            absoluteTurn: 0,
+            turnCoverage: 0
+        };
+    }
+
+    const angles = path.map(
+        point => Math.atan2(
+            point.y - centerY,
+            point.x - centerX
+        )
+    );
+
+    let signedTurn = 0;
+    let absoluteTurn = 0;
+
+    for (
+        let index = 1;
+        index < angles.length;
+        index++
+    ) {
+        const difference =
+            normalizeAngleDifference(
+                angles[index]
+                - angles[index - 1]
+            );
+
+        if (
+            Math.abs(difference)
+            > Math.PI * 0.75
+        ) {
+            continue;
+        }
+
+        signedTurn += difference;
+        absoluteTurn += Math.abs(difference);
+    }
+
+    const turnCoverage =
+        clamp(
+            Math.abs(signedTurn)
+            / (2 * Math.PI),
+            0,
+            1
+        );
+
+    return {
+        signedTurn,
+        absoluteTurn,
+        turnCoverage
+    };
+}
+
+
+/* ============================================================
+   CURVATURA ROBUSTA
+   ============================================================ */
+
+function calculateRobustCurvature(
+    path,
+    fittedRadius
+) {
+    const windowSize =
+        CONFIG.tangentWindow;
+
+    const step =
+        CONFIG.curvatureStep;
+
+    const minimumCount =
+        2 * windowSize
+        + step
+        + 4;
+
+    if (
+        path.length < minimumCount
+        || fittedRadius <= 1e-9
+    ) {
+        return {
+            curvatureError: 1,
+            curvatureDeviation: 1,
+            sampleCount: 0
+        };
+    }
+
+    const tangentAngles =
+        new Array(path.length).fill(null);
+
+    for (
+        let index = windowSize;
+        index < path.length - windowSize;
+        index++
+    ) {
+        const previous =
+            path[index - windowSize];
+
+        const next =
+            path[index + windowSize];
+
+        tangentAngles[index] =
+            Math.atan2(
+                next.y - previous.y,
+                next.x - previous.x
+            );
+    }
+
+    let signedTangentTurn = 0;
+
+    for (
+        let index = windowSize;
+        index
+            < path.length
+            - windowSize
+            - step;
+        index += step
+    ) {
+        const firstAngle =
+            tangentAngles[index];
+
+        const secondAngle =
+            tangentAngles[index + step];
+
+        if (
+            firstAngle === null
+            || secondAngle === null
+        ) {
+            continue;
+        }
+
+        signedTangentTurn +=
+            normalizeAngleDifference(
+                secondAngle - firstAngle
+            );
+    }
+
+    const orientation =
+        signedTangentTurn < 0
+            ? -1
+            : 1;
+
+    const normalizedCurvatures = [];
+
+    for (
+        let index = windowSize;
+        index
+            < path.length
+            - windowSize
+            - step;
+        index += step
+    ) {
+        const firstAngle =
+            tangentAngles[index];
+
+        const secondAngle =
+            tangentAngles[index + step];
+
+        if (
+            firstAngle === null
+            || secondAngle === null
+        ) {
+            continue;
+        }
+
+        let localLength = 0;
+
+        for (
+            let localIndex = index + 1;
+            localIndex <= index + step;
+            localIndex++
+        ) {
+            localLength += distance(
+                path[localIndex - 1],
+                path[localIndex]
+            );
+        }
+
+        if (localLength <= 1e-9) {
+            continue;
+        }
+
+        const angleChange =
+            normalizeAngleDifference(
+                secondAngle - firstAngle
+            );
+
+        const normalizedCurvature =
+            orientation
+            * fittedRadius
+            * angleChange
+            / localLength;
+
+        if (
+            !Number.isFinite(
+                normalizedCurvature
+            )
+        ) {
+            continue;
+        }
+
+        normalizedCurvatures.push(
+            clamp(
+                normalizedCurvature,
+                -2.5,
+                4
+            )
+        );
+    }
+
+    if (
+        normalizedCurvatures.length < 5
+    ) {
+        return {
+            curvatureError: 1,
+            curvatureDeviation: 1,
+            sampleCount:
+                normalizedCurvatures.length
+        };
+    }
+
+    const deviations =
+        normalizedCurvatures.map(
+            value => Math.abs(value - 1)
+        );
+
+    const maximumAcceptedDeviation =
+        percentile(deviations, 0.90);
+
+    const robustCurvatures =
+        normalizedCurvatures.filter(
+            value =>
+                Math.abs(value - 1)
+                <= maximumAcceptedDeviation
+        );
+
+    const medianAbsoluteError =
+        median(
+            robustCurvatures.map(
+                value =>
+                    Math.abs(value - 1)
+            )
+        );
+
+    const rootMeanSquareError =
+        Math.sqrt(
+            mean(
+                robustCurvatures.map(
+                    value => {
+                        const difference =
+                            value - 1;
+
+                        return (
+                            difference
+                            * difference
+                        );
+                    }
+                )
+            )
+        );
+
+    const curvatureError =
+        0.65 * medianAbsoluteError
+        + 0.35 * rootMeanSquareError;
+
+    const curvatureDeviation =
+        standardDeviation(
+            robustCurvatures
+        );
+
+    return {
+        curvatureError,
+        curvatureDeviation,
+        sampleCount:
+            normalizedCurvatures.length
+    };
+}
+
+
+/* ============================================================
+   ANALISI COMPLETA
+   ============================================================ */
+
+function invalidAnalysis(message) {
+    return {
+        score: 0,
+        center: null,
+        radius: 0,
+
+        radialError: null,
+        closureError: null,
+
+        curvatureError: null,
+        curvatureDeviation: null,
+
+        turnCoverage: null,
+
+        valid: false,
+        message
+    };
+}
+
+
+function analyzeCircle(rawPoints) {
+    if (
+        rawPoints.length
+        < CONFIG.minRawPoints
+    ) {
+        return invalidAnalysis(
+            "Troppi pochi punti"
+        );
+    }
+
+    const minimumDimension =
+        Math.min(
+            logicalWidth,
+            logicalHeight
+        );
+
+    const minimumPathLength =
+        minimumDimension
+        * CONFIG.minPathLengthRatio;
+
+    const minimumRadius =
+        minimumDimension
+        * CONFIG.minRadiusRatio;
+
+    const resampleDistance =
+        Math.max(
+            2,
+            minimumDimension
+            * CONFIG.resampleDistanceRatio
+        );
+
+    let preparedPoints =
+        removeDuplicatePoints(
+            rawPoints
+        );
+
+    if (
+        pathLength(preparedPoints)
+        < minimumPathLength
+    ) {
+        return invalidAnalysis(
+            "Disegno troppo piccolo"
+        );
+    }
+
+    preparedPoints =
+        resamplePath(
+            preparedPoints,
+            resampleDistance
+        );
+
+    preparedPoints =
+        smoothOpenPath(
+            preparedPoints,
+            CONFIG.smoothingIterations
+        );
+
+    const fittedCircle =
+        fitCircleLeastSquares(
+            preparedPoints
+        );
+
+    if (fittedCircle === null) {
+        return invalidAnalysis(
+            "Forma non valutabile"
+        );
+    }
+
+    const {
+        centerX,
+        centerY,
+        radius
+    } = fittedCircle;
+
+    if (radius < minimumRadius) {
+        return invalidAnalysis(
+            "Cerchio troppo piccolo"
+        );
+    }
+
+    const radialDistances =
+        preparedPoints.map(
+            point => Math.hypot(
+                point.x - centerX,
+                point.y - centerY
+            )
+        );
+
+    const meanRadius =
+        mean(radialDistances);
+
+    if (
+        !Number.isFinite(meanRadius)
+        || meanRadius <= 1e-9
+    ) {
+        return invalidAnalysis(
+            "Raggio non valido"
+        );
+    }
+
+    const radialError =
+        standardDeviation(
+            radialDistances
+        ) / meanRadius;
+
+    const endpointDistance =
+        distance(
+            preparedPoints[0],
+            preparedPoints[
+                preparedPoints.length - 1
+            ]
+        );
+
+    const closureError =
+        clamp(
+            endpointDistance
+            / (2 * meanRadius),
+            0,
+            1
+        );
+
+    const turnMetrics =
+        calculateTurnCoverage(
+            preparedPoints,
+            centerX,
+            centerY
+        );
+
+    const curvatureMetrics =
+        calculateRobustCurvature(
+            preparedPoints,
+            meanRadius
+        );
+
+    const turnCoverage =
+        turnMetrics.turnCoverage;
+
+    const curvatureError =
+        curvatureMetrics.curvatureError;
+
+    const curvatureDeviation =
+        curvatureMetrics.curvatureDeviation;
+
+    /*
+     * Qualità radiale più severa.
+     */
+    const radialQuality =
+        1 / (
+            1
+            + Math.pow(
+                radialError
+                / CONFIG.radialErrorScale,
+                2
+            )
+        );
+
+    /*
+     * Qualità della curvatura.
+     */
+    const curvatureQuality =
+        1 / (
+            1
+            + Math.pow(
+                curvatureError
+                / CONFIG.curvatureErrorScale,
+                2
+            )
+        );
+
+    /*
+     * Qualità geometrica del tratto disegnato.
+     */
+    const geometricQuality =
+        Math.pow(
+            radialQuality,
+            CONFIG.radialWeight
+        )
+        *
+        Math.pow(
+            curvatureQuality,
+            CONFIG.curvatureWeight
+        );
+
+    /*
+     * La copertura del giro determina direttamente
+     * il massimo punteggio ottenibile.
+     *
+     * Esempi:
+     *
+     * copertura 100%, geometria perfetta = 100
+     * copertura 75%, geometria perfetta = 75
+     * copertura 50%, geometria perfetta = 50
+     * copertura 25%, geometria perfetta = 25
+     */
+    const totalQuality =
+        geometricQuality
+        * turnCoverage;
+
+    const score =
+        Math.round(
+            clamp(
+                100 * totalQuality,
+                0,
+                100
+            )
+        );
+
+    let message;
+
+    if (
+        turnCoverage < 0.45
+    ) {
+        message =
+            "Completa maggiormente il giro";
+    } else if (
+        turnCoverage < 0.85
+    ) {
+        message =
+            "Il giro è ancora incompleto";
+    } else if (
+        score >= 92
+    ) {
+        message =
+            "Cerchio eccellente!";
+    } else if (
+        score >= 82
+    ) {
+        message =
+            "Ottimo cerchio!";
+    } else if (
+        score >= 68
+    ) {
+        message =
+            "Buon cerchio";
+    } else if (
+        radialError > 0.10
+    ) {
+        message =
+            "Mantieni più costante il raggio";
+    } else if (
+        curvatureError > 0.75
+    ) {
+        message =
+            "Rendi la curva più uniforme";
+    } else if (
+        score >= 50
+    ) {
+        message =
+            "Discreto, ma ancora irregolare";
+    } else {
+        message =
+            "Riprova con un movimento più preciso";
+    }
+
+    return {
+        score,
+
+        center: {
+            x: centerX,
+            y: centerY
+        },
+
+        radius: meanRadius,
+
+        radialError,
+        closureError,
+
+        curvatureError,
+        curvatureDeviation,
+
+        turnCoverage,
+
+        valid: true,
+        message
+    };
+}
+
+
+/* ============================================================
+   CANVAS RESPONSIVE E RETINA
+   ============================================================ */
+
+function resizeCanvas() {
+    const rectangle =
+        wrapper.getBoundingClientRect();
+
+    logicalWidth =
+        rectangle.width;
+
+    logicalHeight =
+        rectangle.height;
+
+    const pixelRatio =
+        window.devicePixelRatio || 1;
+
+    canvas.width =
+        Math.round(
+            logicalWidth * pixelRatio
+        );
+
+    canvas.height =
+        Math.round(
+            logicalHeight * pixelRatio
+        );
+
+    context.setTransform(
+        pixelRatio,
+        0,
+        0,
+        pixelRatio,
+        0,
+        0
+    );
+
+    context.lineCap =
+        "round";
+
+    context.lineJoin =
+        "round";
+
+    redraw();
+}
+
+
+/* ============================================================
+   DISEGNO
+   ============================================================ */
+
+function clearCanvas() {
+    context.clearRect(
+        0,
+        0,
+        logicalWidth,
+        logicalHeight
+    );
+
+    context.fillStyle =
+        COLORS.background;
+
+    context.fillRect(
+        0,
+        0,
+        logicalWidth,
+        logicalHeight
+    );
+}
+
+
+function drawPath(path) {
+    if (path.length < 2) {
+        return;
+    }
+
+    context.beginPath();
+
+    context.moveTo(
+        path[0].x,
+        path[0].y
+    );
+
+    for (
+        let index = 1;
+        index < path.length;
+        index++
+    ) {
+        context.lineTo(
+            path[index].x,
+            path[index].y
+        );
+    }
+
+    context.strokeStyle =
+        COLORS.drawing;
+
+    context.lineWidth =
+        CONFIG.lineWidth;
+
+    context.stroke();
+}
+
+
+function drawFittedCircle(result) {
+    if (
+        !result
+        || !result.center
+        || !Number.isFinite(result.radius)
+        || result.radius <= 0
+    ) {
+        return;
+    }
+
+    context.save();
+
+    context.beginPath();
+
+    context.arc(
+        result.center.x,
+        result.center.y,
+        result.radius,
+        0,
+        2 * Math.PI
+    );
+
+    context.strokeStyle =
+        COLORS.fitCircle;
+
+    context.globalAlpha = 0.85;
+    context.lineWidth = 2;
+    context.stroke();
+
+    context.beginPath();
+
+    context.arc(
+        result.center.x,
+        result.center.y,
+        4,
+        0,
+        2 * Math.PI
+    );
+
+    context.fillStyle =
+        COLORS.fitCircle;
+
+    context.fill();
+
+    context.restore();
+}
+
+
+function redraw() {
+    clearCanvas();
+    drawPath(points);
+    drawFittedCircle(analysis);
+}
+
+
+/* ============================================================
+   INTERFACCIA
+   ============================================================ */
+
+function scoreColor(score) {
+    if (score >= 75) {
+        return COLORS.good;
+    }
+
+    if (score >= 45) {
+        return COLORS.medium;
+    }
+
+    return COLORS.bad;
+}
+
+
+function formatPercentage(
+    value,
+    decimals = 1
+) {
+    if (
+        value === null
+        || !Number.isFinite(value)
+    ) {
+        return "—";
+    }
+
+    return `${
+        (value * 100).toFixed(decimals)
+    }%`;
+}
+
+
+function showInitialInterface() {
+    scoreElement.textContent =
+        "0";
+
+    scoreElement.style.color =
+        COLORS.text;
+
+    messageElement.textContent =
+        "Disegna il tuo primo cerchio";
+
+    messageElement.style.color =
+        COLORS.secondary;
+
+    radialErrorElement.textContent =
+        "—";
+
+    closureErrorElement.textContent =
+        "—";
+
+    curvatureErrorElement.textContent =
+        "—";
+
+    turnCoverageElement.textContent =
+        "—";
+}
+
+
+function showDrawingInterface() {
+    scoreElement.textContent =
+        "…";
+
+    scoreElement.style.color =
+        COLORS.text;
+
+    messageElement.textContent =
+        "Continua il giro e torna al punto iniziale";
+
+    messageElement.style.color =
+        COLORS.secondary;
+
+    radialErrorElement.textContent =
+        "—";
+
+    closureErrorElement.textContent =
+        "—";
+
+    curvatureErrorElement.textContent =
+        "—";
+
+    turnCoverageElement.textContent =
+        "—";
+}
+
+
+function showAnalysis(result) {
+    const color =
+        scoreColor(result.score);
+
+    scoreElement.textContent =
+        String(result.score);
+
+    scoreElement.style.color =
+        color;
+
+    messageElement.textContent =
+        result.message;
+
+    messageElement.style.color =
+        color;
+
+    radialErrorElement.textContent =
+        formatPercentage(
+            result.radialError,
+            1
+        );
+
+    closureErrorElement.textContent =
+        formatPercentage(
+            result.closureError,
+            1
+        );
+
+    curvatureErrorElement.textContent =
+        formatPercentage(
+            result.curvatureError,
+            1
+        );
+
+    turnCoverageElement.textContent =
+        formatPercentage(
+            result.turnCoverage,
+            1
+        );
+}
+
+
+function resetGame() {
+    points = [];
+    drawing = false;
+    activePointerId = null;
+    analysis = null;
+
+    showInitialInterface();
+    redraw();
+}
+
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+
+function getCanvasPoint(event) {
+    const rectangle =
+        canvas.getBoundingClientRect();
+
+    return {
+        x: clamp(
+            event.clientX
+            - rectangle.left,
+            0,
+            logicalWidth
+        ),
+
+        y: clamp(
+            event.clientY
+            - rectangle.top,
+            0,
+            logicalHeight
+        )
+    };
+}
+
+
+function startDrawing(event) {
+    if (
+        event.pointerType === "mouse"
+        && event.button !== 0
+    ) {
+        return;
+    }
+
+    event.preventDefault();
+
+    activePointerId =
+        event.pointerId;
+
+    canvas.setPointerCapture(
+        event.pointerId
+    );
+
+    drawing = true;
+    analysis = null;
+
+    points = [
+        getCanvasPoint(event)
+    ];
+
+    showDrawingInterface();
+    redraw();
+}
+
+
+function continueDrawing(event) {
+    if (
+        !drawing
+        || event.pointerId
+            !== activePointerId
+    ) {
+        return;
+    }
+
+    event.preventDefault();
+
+    const currentPoint =
+        getCanvasPoint(event);
+
+    const previousPoint =
+        points[
+            points.length - 1
+        ];
+
+    if (
+        !previousPoint
+        ||
+        distance(
+            previousPoint,
+            currentPoint
+        ) >= 1
+    ) {
+        points.push(
+            currentPoint
+        );
+
+        redraw();
+    }
+}
+
+
+function stopDrawing(event) {
+    if (
+        !drawing
+        || event.pointerId
+            !== activePointerId
+    ) {
+        return;
+    }
+
+    event.preventDefault();
+
+    const finalPoint =
+        getCanvasPoint(event);
+
+    const previousPoint =
+        points[
+            points.length - 1
+        ];
+
+    if (
+        !previousPoint
+        ||
+        distance(
+            previousPoint,
+            finalPoint
+        ) >= 0.5
+    ) {
+        points.push(
+            finalPoint
+        );
+    }
+
+    drawing = false;
+
+    try {
+        canvas.releasePointerCapture(
+            event.pointerId
+        );
+    } catch {
+        /*
+         * Il browser può aver già rilasciato
+         * automaticamente il puntatore.
+         */
+    }
+
+    activePointerId = null;
+
+    analysis =
+        analyzeCircle(points);
+
+    showAnalysis(
+        analysis
+    );
+
+    redraw();
+
+    console.table({
+        punteggio:
+            analysis.score,
+
+        errore_radiale:
+            analysis.radialError,
+
+        errore_chiusura:
+            analysis.closureError,
+
+        errore_curvatura:
+            analysis.curvatureError,
+
+        deviazione_curvatura:
+            analysis.curvatureDeviation,
+
+        giro_completato:
+            analysis.turnCoverage
+    });
+}
+
+
+/* ============================================================
+   EVENTI
+   ============================================================ */
+
+canvas.addEventListener(
+    "pointerdown",
+    startDrawing
+);
+
+canvas.addEventListener(
+    "pointermove",
+    continueDrawing
+);
+
+canvas.addEventListener(
+    "pointerup",
+    stopDrawing
+);
+
+canvas.addEventListener(
+    "pointercancel",
+    stopDrawing
+);
+
+resetButton.addEventListener(
+    "click",
+    resetGame
+);
+
+window.addEventListener(
+    "resize",
+    resizeCanvas
+);
+
+
+/* ============================================================
+   AVVIO
+   ============================================================ */
+
+resizeCanvas();
+showInitialInterface();
+</script>
+</body>
+</html>
